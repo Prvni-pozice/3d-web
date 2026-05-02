@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>X-BOW · AR Inspector — První pozice</title>
+  <title>AR Inspector — První pozice</title>
 
   <!-- model-viewer -->
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
@@ -304,6 +304,33 @@
       border-color: var(--ink);
     }
 
+    /* Model switcher (segmented control) */
+    .model-switch {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      background: rgba(19, 24, 32, 0.85);
+      overflow: hidden;
+    }
+    .model-switch button {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      background: transparent;
+      color: var(--mute);
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .model-switch button + button { border-left: 1px solid var(--line); }
+    .model-switch button:hover { color: var(--ink); }
+    .model-switch button.active {
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
     @media (max-width: 600px) {
       .topbar-meta { display: none; }
       .info-title { font-size: 22px; }
@@ -311,6 +338,7 @@
       .ctl-btn { padding: 10px 14px; font-size: 10px; }
       .info { left: 12px; right: 12px; bottom: 12px; width: auto; }
       .hotspot::after { display: none; }
+      .model-switch button { padding: 7px 10px; font-size: 10px; letter-spacing: 0.12em; }
     }
   </style>
 </head>
@@ -325,9 +353,12 @@
         <div class="brand-tag">AR Inspector v0.1</div>
       </div>
     </div>
+    <div class="model-switch" role="tablist" aria-label="Výběr modelu">
+      <button type="button" class="active" data-model="xbow" aria-pressed="true">KTM X-BOW R</button>
+      <button type="button" data-model="gtx" aria-pressed="false">KTM GTX</button>
+    </div>
     <div class="topbar-meta">
       <span><span class="meta-dot"></span>LIVE</span>
-      <span>KTM X-BOW R</span>
       <span id="fps">— FPS</span>
     </div>
   </header>
@@ -340,6 +371,8 @@
       alt="KTM X-Bow R"
       ar
       ar-modes="webxr scene-viewer quick-look"
+      ar-placement="floor"
+      ar-scale="fixed"
       camera-controls
       touch-action="pan-y"
       shadow-intensity="1.2"
@@ -509,6 +542,58 @@
         viewer.activateAR();
       } else {
         alert('AR není podporováno v tomto prohlížeči. Otevři tuto stránku přímo v Safari (iOS) nebo Chrome (Android) na telefonu.');
+      }
+    });
+
+    // ====== MODEL SWITCHER ======
+    // X-BOW i GTX cca 5 m ve skutečnosti — po načtení GLB doladíme scale
+    // tak, aby nejdelší rozměr odpovídal TARGET_LENGTH_M (real-world).
+    const TARGET_LENGTH_M = 5.0;
+    const MODELS = {
+      xbow: { src: 'ktm-x-bow-r.glb', alt: 'KTM X-Bow R', hotspots: true },
+      gtx:  { src: 'ktm-gtx.glb',     alt: 'KTM GTX',     hotspots: false }
+    };
+    const switchBtns = document.querySelectorAll('.model-switch button');
+    const hotspotEls = document.querySelectorAll('.hotspot');
+
+    function setModel(key) {
+      const m = MODELS[key];
+      if (!m) return;
+      // Reset stavu UI
+      panel.classList.remove('show');
+      setActive(null);
+      // Hotspoty jsou X-BOW specifické — pro GTX skryj
+      hotspotEls.forEach(h => { h.style.display = m.hotspots ? '' : 'none'; });
+      // Reset scale, ať předchozí korekce neovlivní nový model
+      viewer.setAttribute('scale', '1 1 1');
+      viewer.setAttribute('alt', m.alt);
+      if (viewer.getAttribute('src') !== m.src) viewer.setAttribute('src', m.src);
+      // Aktivní tlačítko
+      switchBtns.forEach(b => {
+        const on = b.dataset.model === key;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      // Reset kamery
+      viewer.cameraOrbit = '-25deg 75deg auto';
+      viewer.fieldOfView = 'auto';
+    }
+
+    switchBtns.forEach(btn => {
+      btn.addEventListener('click', () => setModel(btn.dataset.model));
+    });
+
+    // Po načtení každého modelu ověř skutečnou velikost a doladí scale na 5 m
+    viewer.addEventListener('load', () => {
+      try {
+        const dim = viewer.getDimensions(); // {x, y, z} v metrech podle GLB
+        const longest = Math.max(dim.x, dim.y, dim.z);
+        if (longest > 0) {
+          const factor = TARGET_LENGTH_M / longest;
+          viewer.setAttribute('scale', `${factor} ${factor} ${factor}`);
+        }
+      } catch (e) {
+        console.warn('Auto-scale failed:', e);
       }
     });
 
