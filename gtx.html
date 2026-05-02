@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>X-BOW · AR Inspector — První pozice</title>
+
+  <!-- model-viewer -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0b0e10;
+      --panel: #1F2937;
+      --panel-2: #131820;
+      --line: #2a323d;
+      --ink: #f3f6f8;
+      --mute: #8a95a3;
+      --accent: #A3E635;
+      --accent-dim: #6e9c25;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Manrope', sans-serif;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Top bar */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 22px;
+      backdrop-filter: blur(8px);
+      background: rgba(11, 14, 16, 0.6);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-mark {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      clip-path: polygon(0 0, 100% 0, 80% 100%, 0% 100%);
+    }
+    .brand-text { line-height: 1.05; }
+    .brand-name {
+      font-family: 'Anton', sans-serif;
+      font-size: 15px;
+      letter-spacing: 0.18em;
+      color: var(--ink);
+    }
+    .brand-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--accent);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+    .topbar-meta {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--mute);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .meta-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin-right: 6px;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* Main viewer */
+    .viewer-wrap {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      --poster-color: transparent;
+    }
+
+    /* Hotspots */
+    .hotspot {
+      --size: 22px;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: rgba(163, 230, 53, 0.15);
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+      position: relative;
+    }
+    .hotspot::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(163, 230, 53, 0.35);
+      animation: ring 2s ease-out infinite;
+    }
+    .hotspot::after {
+      content: attr(data-label);
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: var(--ink);
+      background: rgba(19, 24, 32, 0.85);
+      border: 1px solid var(--line);
+      padding: 4px 10px;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+    .hotspot:hover {
+      transform: scale(1.2);
+      background: rgba(163, 230, 53, 0.4);
+    }
+    .hotspot.active {
+      background: var(--accent);
+      transform: scale(1.25);
+    }
+    @keyframes ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Info panel */
+    .info {
+      position: fixed;
+      left: 22px;
+      bottom: 22px;
+      z-index: 5;
+      width: min(380px, calc(100vw - 44px));
+      background: rgba(19, 24, 32, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      padding: 18px 20px 20px;
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+    }
+    .info.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .info-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .info-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--accent);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+    .info-close {
+      background: none;
+      border: none;
+      color: var(--mute);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+    }
+    .info-close:hover { color: var(--ink); }
+    .info-title {
+      font-family: 'Anton', sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+    .info-specs {
+      list-style: none;
+      margin-bottom: 14px;
+    }
+    .info-specs li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px dashed rgba(255,255,255,0.05);
+    }
+    .info-specs li:last-child { border-bottom: none; }
+    .info-specs .k {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--mute);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .info-specs .v {
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .info-fact {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--mute);
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      font-style: italic;
+    }
+    .info-fact::before {
+      content: '※ ';
+      color: var(--accent);
+      font-style: normal;
+    }
+
+    /* AR + reset buttons */
+    .controls {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ctl-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 12px 18px;
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .ctl-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .ctl-btn.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .ctl-btn.primary:hover {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+    }
+
+    @media (max-width: 600px) {
+      .topbar-meta { display: none; }
+      .info-title { font-size: 22px; }
+      .controls { bottom: auto; top: 70px; right: 12px; flex-direction: row; }
+      .ctl-btn { padding: 10px 14px; font-size: 10px; }
+      .info { left: 12px; right: 12px; bottom: 12px; width: auto; }
+      .hotspot::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <div class="brand-name">PRVNÍ POZICE</div>
+        <div class="brand-tag">AR Inspector v0.1</div>
+      </div>
+    </div>
+    <div class="topbar-meta">
+      <span><span class="meta-dot"></span>LIVE</span>
+      <span>KTM X-BOW R</span>
+      <span id="fps">— FPS</span>
+    </div>
+  </header>
+
+  <!-- 3D VIEWER -->
+  <main class="viewer-wrap">
+    <model-viewer
+      id="viewer"
+      src="ktm-gtx.glb"
+      alt="KTM X-Bow R"
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+      camera-controls
+      touch-action="pan-y"
+      shadow-intensity="1.2"
+      shadow-softness="0.7"
+      exposure="1.1"
+      environment-image="neutral"
+      camera-orbit="-25deg 75deg auto"
+      min-camera-orbit="auto 0deg auto"
+      max-camera-orbit="auto 90deg auto"
+      interaction-prompt="auto"
+    >
+      <!-- HOTSPOTS - pozice budou potřebovat doladit pro reálný X-Bow model -->
+      <button class="hotspot" slot="hotspot-engine"
+              data-position="0 0.18 -0.25" data-normal="0 1 0"
+              data-label="MOTOR" data-id="engine"></button>
+
+      <button class="hotspot" slot="hotspot-mono"
+              data-position="0 0.12 0.05" data-normal="0 1 0"
+              data-label="MONOKOK" data-id="mono"></button>
+
+      <button class="hotspot" slot="hotspot-aero"
+              data-position="0 0.22 0.4" data-normal="0 0 1"
+              data-label="AERO" data-id="aero"></button>
+
+      <button class="hotspot" slot="hotspot-wheel"
+              data-position="0.22 0.08 0.18" data-normal="1 0 0"
+              data-label="KOLO" data-id="wheel"></button>
+
+      <button class="hotspot" slot="hotspot-cockpit"
+              data-position="0 0.18 0.08" data-normal="0 1 0"
+              data-label="KOKPIT" data-id="cockpit"></button>
+    </model-viewer>
+  </main>
+
+  <!-- INFO PANEL -->
+  <aside class="info" id="infoPanel">
+    <div class="info-head">
+      <span class="info-id" id="infoId">001 / KOMPONENTA</span>
+      <button class="info-close" id="infoClose" aria-label="Zavřít">×</button>
+    </div>
+    <h2 class="info-title" id="infoTitle">—</h2>
+    <ul class="info-specs" id="infoSpecs"></ul>
+    <p class="info-fact" id="infoFact"></p>
+  </aside>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="ctl-btn" id="resetBtn">Reset Pohledu</button>
+    <button class="ctl-btn primary" id="arBtn">Spustit AR</button>
+  </div>
+
+  <script>
+    // ====== DATABÁZE KOMPONENT (KTM X-Bow R - veřejná data) ======
+    const DATA = {
+      engine: {
+        id: '01 / POHONNÁ JEDNOTKA',
+        title: 'AUDI 2.0 TFSI',
+        specs: [
+          ['Objem', '1 984 cm³'],
+          ['Konfigurace', 'R4, turbo'],
+          ['Výkon', '300 PS / 220 kW'],
+          ['Točivý moment', '400 N·m'],
+          ['Pozice', 'Středová, podélně'],
+        ],
+        fact: 'Motor je dodáván Audi Sport divizí — sdílí základ s Audi S3 a TT-S, ale s upravenou ECU a výfukovým systémem pro X-Bow.'
+      },
+      mono: {
+        id: '02 / KAROSERIE',
+        title: 'CARBON MONOCOQUE',
+        specs: [
+          ['Materiál', 'Carbon-fibre composite'],
+          ['Hmotnost monokoku', '~80 kg'],
+          ['Výrobce', 'Wethje (DE)'],
+          ['Crash struktury', 'Hliník + carbon'],
+        ],
+        fact: 'X-Bow byl prvním sériovým autem na světě s plně karbonovým monokokem. Tuhost rámu se blíží formuli — proto auto neunese plnou střechu.'
+      },
+      aero: {
+        id: '03 / AERODYNAMIKA',
+        title: 'DOWNFORCE PACKAGE',
+        specs: [
+          ['Přítlak při 200 km/h', '~100 kg'],
+          ['Boční zrychlení', 'až 2 G'],
+          ['Vývoj', 'KTM Tech + Dallara'],
+          ['Otevřený podvozek', 'F1-styl difuzor'],
+        ],
+        fact: 'Aerodynamiku spoluvyvíjela italská Dallara — stejná firma, která dodává podvozky pro IndyCar a Formuli 2.'
+      },
+      wheel: {
+        id: '04 / PODVOZEK',
+        title: 'NÁPRAVA & BRZDY',
+        specs: [
+          ['Pneumatiky', '205/45 R17 / 235/40 R18'],
+          ['Brzdy', 'Brembo, 305 mm'],
+          ['Tlumiče', 'Sachs, manuálně stavitelné'],
+          ['Geometrie', 'Push-rod, dvojitá lichoběžníková'],
+        ],
+        fact: 'Push-rod závěs s vnitřně uloženými tlumiči je převzatý přímo z konstrukce vozů Le Mans LMP — v silničním autě naprosto nevídané.'
+      },
+      cockpit: {
+        id: '05 / INTERIÉR',
+        title: 'TWIN-SEAT COCKPIT',
+        specs: [
+          ['Sedadla', 'Karbonové skořepiny, fix.'],
+          ['Bezpečnostní pásy', '4-bod (R) / 6-bod (RR)'],
+          ['Volant', 'Snímatelný, MOMO'],
+          ['Hmotnost suchá', '790 kg'],
+        ],
+        fact: 'Bez střechy, bez airbagů, bez ABS (u základní R verze) — KTM filozofie „čistého řízení" znamená přímou kontrolu bez asistentů.'
+      }
+    };
+
+    // ====== LOGIKA ======
+    const viewer = document.getElementById('viewer');
+    const panel = document.getElementById('infoPanel');
+    const titleEl = document.getElementById('infoTitle');
+    const idEl = document.getElementById('infoId');
+    const specsEl = document.getElementById('infoSpecs');
+    const factEl = document.getElementById('infoFact');
+    const closeBtn = document.getElementById('infoClose');
+    const resetBtn = document.getElementById('resetBtn');
+    const arBtn = document.getElementById('arBtn');
+    const fpsEl = document.getElementById('fps');
+
+    let activeHotspot = null;
+
+    function showInfo(id) {
+      const d = DATA[id];
+      if (!d) return;
+      idEl.textContent = d.id;
+      titleEl.textContent = d.title;
+      specsEl.innerHTML = d.specs
+        .map(([k, v]) => `<li><span class="k">${k}</span><span class="v">${v}</span></li>`)
+        .join('');
+      factEl.textContent = d.fact;
+      panel.classList.add('show');
+    }
+
+    function setActive(btn) {
+      if (activeHotspot) activeHotspot.classList.remove('active');
+      activeHotspot = btn;
+      if (btn) btn.classList.add('active');
+    }
+
+    document.querySelectorAll('.hotspot').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setActive(btn);
+        showInfo(btn.dataset.id);
+      });
+    });
+
+    closeBtn.addEventListener('click', () => {
+      panel.classList.remove('show');
+      setActive(null);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      viewer.cameraOrbit = '-25deg 75deg auto';
+      viewer.fieldOfView = 'auto';
+      panel.classList.remove('show');
+      setActive(null);
+    });
+
+    arBtn.addEventListener('click', () => {
+      if (viewer.canActivateAR) {
+        viewer.activateAR();
+      } else {
+        alert('AR není podporováno v tomto prohlížeči. Otevři tuto stránku přímo v Safari (iOS) nebo Chrome (Android) na telefonu.');
+      }
+    });
+
+    // FPS counter
+    let lastTime = performance.now();
+    let frames = 0;
+    function tick() {
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        fpsEl.textContent = frames + ' FPS';
+        frames = 0;
+        lastTime = now;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+  </script>
+</body>
+</html>
