@@ -583,14 +583,20 @@
       btn.addEventListener('click', () => setModel(btn.dataset.model));
     });
 
-    // Po načtení každého modelu ověř skutečnou velikost a doladí scale na 5 m
-    viewer.addEventListener('load', () => {
+    // Po načtení každého modelu ověř skutečnou velikost a doladí scale na TARGET.
+    // Po změně scale je nutné kameru znovu zafrejmovat, jinak by model
+    // zůstal v původním auto-framingu (počítaném z raw bbox) a "zmizel" — viz updateFraming().
+    viewer.addEventListener('load', async () => {
       try {
         const dim = viewer.getDimensions(); // {x, y, z} v metrech podle GLB
         const longest = Math.max(dim.x, dim.y, dim.z);
         if (longest > 0) {
           const factor = TARGET_LENGTH_M / longest;
           viewer.setAttribute('scale', `${factor} ${factor} ${factor}`);
+          if (typeof viewer.updateFraming === 'function') {
+            await viewer.updateFraming();
+          }
+          viewer.cameraOrbit = '-25deg 75deg auto';
         }
       } catch (e) {
         console.warn('Auto-scale failed:', e);
