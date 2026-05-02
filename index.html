@@ -372,7 +372,6 @@
       ar
       ar-modes="webxr scene-viewer quick-look"
       ar-placement="floor"
-      ar-scale="fixed"
       camera-controls
       touch-action="pan-y"
       shadow-intensity="1.2"
@@ -546,9 +545,10 @@
     });
 
     // ====== MODEL SWITCHER ======
-    // X-BOW i GTX cca 5 m ve skutečnosti — po načtení GLB doladíme scale
-    // tak, aby nejdelší rozměr odpovídal TARGET_LENGTH_M (real-world).
-    const TARGET_LENGTH_M = 5.0;
+    // X-BOW i GTX cca 5 m ve skutečnosti, ale pro AR v interiéru je 5 m
+    // nepraktické — naškálujeme na ~poloviční (2.5 m). V AR si uživatel
+    // může velikost dále upravit (ar-scale není uzamknuté na "fixed").
+    const TARGET_LENGTH_M = 2.5;
     const MODELS = {
       xbow: { src: 'ktm-x-bow-r.glb', alt: 'KTM X-Bow R', hotspots: true },
       gtx:  { src: 'ktm-gtx.glb',     alt: 'KTM GTX',     hotspots: false }
