@@ -9,6 +9,8 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+import logos
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 W = os.path.join(HERE, "work")
 FONT_NUM = os.path.join(HERE, "fonts", "RussoOne.ttf")
@@ -130,17 +132,12 @@ def small_jr():
 
 
 def build_glass():
-    """Čelní sklo zepředu (u = x, v = z): černý pruh s nápisem KTM X-BOW nahoře."""
+    """Čelní sklo zepředu (u = x, v = z): černý pruh s nápisem GT2 EUROPE nahoře (jako na fotkách z Portimão)."""
     L = Plane("x", "z", (-1.15, 1.15), (0.0, 1.3), ppm=600)
     L.rect((0, 1.02), (1.6, 0.17), BLACK)
-    parts = [("KTM ", WHITE), ("X", (255, 70, 30)), ("-BOW", WHITE)]
-    sprites = [text_sprite(t, px=300, fill=c, font=FONT_NUM) for t, c in parts]
-    h = max(sp.height for sp in sprites)
-    row = Image.new("RGBA", (sum(sp.width for sp in sprites), h), (0, 0, 0, 0))
-    xo = 0
-    for sp in sprites:
-        row.alpha_composite(sp, (xo, (h - sp.height) // 2)); xo += sp.width
-    L.paste(row, (0, 1.0), 0.075)
+    banner = logos.gt2_europe()
+    width_m = 0.8  # sklo je ve výšce pruhu široké jen ~0,93 m
+    L.paste(banner, (0, 0.988), width_m * banner.height / banner.width)
     return L
 
 
@@ -166,6 +163,15 @@ def build_top():
         L.line([(s * 0.48, 0.45), (s * 0.44, 1.75)], WHITE, 0.018)
     # startovní číslo na kapotě u pravého světla (pravý bok = −x)
     L.paste(number_plate(rot=-8), (-0.40, -1.72), 0.20)
+    # sponzoři na kapotě (od čelního skla k nosu), čitelní při pohledu zepředu
+    # (velikosti podle poměru k tabulce 89 na čelní fotce)
+    L.paste(logos.liqui_moly(), (0.03, -1.39), 0.2)
+    L.paste(logos.novologix(), (0.02, -1.6), 0.12)
+    L.paste(logos.vars_logo(), (0.03, -1.78), 0.095)
+    L.paste(logos.s_logo(), (0.0, -1.97), 0.1)
+    L.paste(logos.ktm(), (0.0, -2.18), 0.05)
+    # sloupec menších log na levém předním blatníku (červená horní hrana)
+    L.paste(logos.fender_stack(), (0.83, -1.32), 0.26)
     return L
 
 
@@ -181,15 +187,22 @@ def build_side(left):
     L.paste(flip(small_jr()), (2.07, 1.06), 0.11)
     # JR přes zadní část boku
     L.paste(flip(jr_logo()), (0.45, 0.47), 0.74)
-    # svislá startovní tabulka hned za předním kolem, číslo otočené o 90° tak, aby horní
-    # hrana číslic mířila na obou bocích dopředu (zrcadlově symetrický polep)
-    plate = Image.new("RGBA", (420, 900), (0, 0, 0, 0))
-    ImageDraw.Draw(plate).rounded_rectangle([4, 4, 415, 895], radius=50, fill=WHITE, outline=BLACK, width=20)
-    num = text_sprite(NUMBER, px=420, italic=0.12).rotate(90 if left else -90, expand=True, resample=Image.BICUBIC)
-    s = min(330 / num.width, 760 / num.height)
-    num = num.resize((int(num.width * s), int(num.height * s)), Image.LANCZOS)
-    plate.alpha_composite(num, ((420 - num.width) // 2, (900 - num.height) // 2))
-    L.paste(flip(plate), (-0.86, 0.40), 0.40)
+    # startovní tabulka kousek za předním podběhem: bílá na výšku, nahoře GT2 Europe,
+    # číslo normálně čitelné (vodorovně s autem), užší písmo
+    pw, ph = 440, 800
+    plate = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
+    ImageDraw.Draw(plate).rounded_rectangle([3, 3, pw - 4, ph - 4], radius=36, fill=WHITE + (255,))
+    tag = logos.gt2_tag()
+    tag = tag.resize((int(pw * 0.42), int(pw * 0.42 * tag.height / tag.width)), Image.LANCZOS)
+    plate.alpha_composite(tag, (int(pw * 0.08), int(ph * 0.05)))
+    num = text_sprite(NUMBER, px=400, italic=0.1)
+    num = num.resize((int(pw * 0.9), int(ph * 0.55)), Image.LANCZOS)  # zúžené, vysoké číslice
+    plate.alpha_composite(num, ((pw - num.width) // 2, int(ph * 0.36)))
+    L.paste(flip(plate), (-0.74, 0.40), 0.40)
+    # Pirelli na boku nosu před předním kolem
+    L.paste(flip(logos.pirelli()), (-1.84, 0.41), 0.05)
+    # XTAL na červeném prahu
+    L.paste(flip(logos.xtal("Regular")), (-0.15, 0.135), 0.06)
     return L
 
 
