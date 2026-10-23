@@ -338,7 +338,12 @@
       .ctl-btn { padding: 10px 14px; font-size: 10px; }
       .info { left: 12px; right: 12px; bottom: 12px; width: auto; }
       .hotspot::after { display: none; }
-      .model-switch button { padding: 7px 10px; font-size: 10px; letter-spacing: 0.12em; }
+      .topbar { padding: 12px 12px; gap: 10px; }
+      .brand { gap: 8px; min-width: 0; }
+      .brand-name { font-size: 13px; letter-spacing: 0.1em; }
+      .brand-tag { letter-spacing: 0.12em; }
+      .model-switch { flex-shrink: 0; }
+      .model-switch button { padding: 7px 7px; font-size: 9.5px; letter-spacing: 0.06em; white-space: nowrap; }
     }
   </style>
 </head>
@@ -356,6 +361,7 @@
     <div class="model-switch" role="tablist" aria-label="Výběr modelu">
       <button type="button" class="active" data-model="xbow" aria-pressed="true">KTM X-BOW R</button>
       <button type="button" data-model="gtx" aria-pressed="false">KTM GTX</button>
+      <button type="button" data-model="gtx89" aria-pressed="false">GTX #89</button>
     </div>
     <div class="topbar-meta">
       <span><span class="meta-dot"></span>LIVE</span>
@@ -551,7 +557,8 @@
     const TARGET_LENGTH_M = 2.5;
     const MODELS = {
       xbow: { src: 'ktm-x-bow-r.glb', alt: 'KTM X-Bow R', hotspots: true },
-      gtx:  { src: 'ktm-gtx.glb',     alt: 'KTM GTX',     hotspots: false }
+      gtx:  { src: 'ktm-gtx.glb',     alt: 'KTM GTX',     hotspots: false },
+      gtx89: { src: 'ktm-gtx-89.glb', alt: 'KTM GTX #89', hotspots: false }
     };
     const switchBtns = document.querySelectorAll('.model-switch button');
     const hotspotEls = document.querySelectorAll('.hotspot');
