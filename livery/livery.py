@@ -124,6 +124,26 @@ def jr_logo(h_px=900):
     return out.transform((int(W_ + sh * H_), H_), Image.AFFINE, (1, sh, -sh * H_, 0, 1, 0), resample=Image.BICUBIC)
 
 
+def small_jr():
+    """Malé plné bílé logo JR (rohy nárazníku, bočnice křídla)."""
+    return text_sprite("JR", px=300, fill=WHITE, italic=0.22)
+
+
+def build_glass():
+    """Čelní sklo zepředu (u = x, v = z): černý pruh s nápisem KTM X-BOW nahoře."""
+    L = Plane("x", "z", (-1.15, 1.15), (0.0, 1.3), ppm=600)
+    L.rect((0, 1.02), (1.6, 0.17), BLACK)
+    parts = [("KTM ", WHITE), ("X", (255, 70, 30)), ("-BOW", WHITE)]
+    sprites = [text_sprite(t, px=300, fill=c, font=FONT_NUM) for t, c in parts]
+    h = max(sp.height for sp in sprites)
+    row = Image.new("RGBA", (sum(sp.width for sp in sprites), h), (0, 0, 0, 0))
+    xo = 0
+    for sp in sprites:
+        row.alpha_composite(sp, (xo, (h - sp.height) // 2)); xo += sp.width
+    L.paste(row, (0, 1.0), 0.075)
+    return L
+
+
 # ---------------------------------------------------------------- vrstvy
 
 def build_top():
@@ -135,6 +155,8 @@ def build_top():
     for s in (-1, 1):
         sw = [(s * 0.86, -2.05), (s * 0.66, -2.05), (s * 0.52, -1.55), (s * 0.48, -1.05), (s * 0.66, -1.05), (s * 0.74, -1.55)]
         L.poly(sw, CARBON)
+        if s < 0:  # polep je asymetrický: pravý přední blatník je celý černý, levý má horní hranu červenou
+            L.poly([(-0.66, -2.45), (-1.15, -2.45), (-1.15, -1.05), (-0.48, -1.05), (-0.52, -1.55), (-0.66, -2.05)], CARBON)
         L.line([(s * 0.655, -2.06), (s * 0.505, -1.55), (s * 0.465, -1.0)], WHITE, 0.022)
     # střecha nad kokpitem
     L.poly([(-0.62, -1.05), (0.62, -1.05), (0.6, 0.5), (-0.6, 0.5)], RED)
@@ -156,12 +178,14 @@ def build_side(left):
     L.poly([(-0.98, 0.06), (1.08, 0.06), (1.04, 0.2), (-0.92, 0.22)], RED)
     # bočnice křídla
     L.poly([(1.75, 0.88), (2.4, 0.88), (2.4, 1.25), (1.75, 1.25)], RED)
+    L.paste(flip(small_jr()), (2.07, 1.06), 0.11)
     # JR přes zadní část boku
     L.paste(flip(jr_logo()), (0.45, 0.47), 0.74)
-    # svislá startovní tabulka hned za předním kolem, číslo otočené o 90°
+    # svislá startovní tabulka hned za předním kolem, číslo otočené o 90° tak, aby horní
+    # hrana číslic mířila na obou bocích dopředu (zrcadlově symetrický polep)
     plate = Image.new("RGBA", (420, 900), (0, 0, 0, 0))
     ImageDraw.Draw(plate).rounded_rectangle([4, 4, 415, 895], radius=50, fill=WHITE, outline=BLACK, width=20)
-    num = text_sprite(NUMBER, px=420, italic=0.12).rotate(-90, expand=True, resample=Image.BICUBIC)
+    num = text_sprite(NUMBER, px=420, italic=0.12).rotate(90 if left else -90, expand=True, resample=Image.BICUBIC)
     s = min(330 / num.width, 760 / num.height)
     num = num.resize((int(num.width * s), int(num.height * s)), Image.LANCZOS)
     plate.alpha_composite(num, ((420 - num.width) // 2, (900 - num.height) // 2))
@@ -177,6 +201,7 @@ def build_front():
     # červené spodní rohy nárazníku
     for s in (-1, 1):
         L.poly([(s * 0.64, 0.08), (s * 1.08, 0.08), (s * 1.08, 0.42), (s * 0.7, 0.42)], RED)
+        L.paste(small_jr(), (s * 0.87, 0.22), 0.08)
     return L
 
 
@@ -211,13 +236,14 @@ def main():
     # bok — jen vnější plochy (normála míří ven na tu stranu, kde bod leží)
     for left in (True, False):
         sgn = 1 if left else -1
-        over(build_side(left).sample(P), smooth(sgn * nx, 0.3, 0.55) * (sgn * x > 0.35))
+        over(build_side(left).sample(P), smooth(sgn * nx, 0.42, 0.5) * (sgn * x > 0.35))
 
     # předek a záď
-    over(build_front().sample(P), smooth(-ny, 0.35, 0.6) * (y < -1.6))
-    over(build_rear().sample(P), smooth(ny, 0.35, 0.6) * (y > 1.7))
+    over(build_front().sample(P), smooth(-ny, 0.45, 0.52) * (y < -1.6))
+    over(build_rear().sample(P), smooth(ny, 0.45, 0.52) * (y > 1.7))
     # shora — jen nad bočnicí; křídlo (vysoko vzadu) zůstává černé
-    top_w = smooth(nz, 0.25, 0.5) * (z > 0.42) * ~((y > 1.75) & (z > 0.92))
+    # úzký přechod = ostrá hrana jako u fólie
+    top_w = smooth(nz, 0.34, 0.4) * (z > 0.42) * ~((y > 1.75) & (z > 0.92))
     top_w *= ~((y > -1.0) & (y < 0.5) & (z < 0.93) & (np.abs(x) < 0.62))  # vnitřek kokpitu ne, jen střecha
     over(build_top().sample(P), top_w)
 
@@ -231,6 +257,25 @@ def main():
     mr = np.zeros_like(out); mr[..., 1] = rough
     Image.fromarray((mr[::-1] * 255).astype(np.uint8)).save(os.path.join(W, "livery_mr.png"))
     print("livery.jpg", img.size, "texelů", m.sum())
+    glass()
+
+
+def glass():
+    """Textura vnějšího skla: tónované sklo (černé, alfa 0,25 jako v originálu) + pruh na čelním skle."""
+    pos = np.load(os.path.join(W, "glass_position.npy"))
+    nrm = np.load(os.path.join(W, "glass_normal.npy"))
+    H, Wd = pos.shape[:2]
+    P = pos[..., :3].reshape(-1, 3) * 100.0
+    N = nrm[..., :3].reshape(-1, 3)
+    out = np.zeros((H * Wd, 4), np.float32); out[:, 3] = 0.25
+    ws = (N[:, 1] < -0.3) & (P[:, 2] > 0.75) & (P[:, 1] > -1.4) & (P[:, 1] < -0.4)  # jen čelní sklo
+    band = build_glass().sample(P[ws])
+    a = band[:, 3:4]
+    out[ws, :3] = band[:, :3] * a
+    out[ws, 3:] = 0.25 * (1 - a) + a
+    img = Image.fromarray((out.reshape(H, Wd, 4)[::-1] * 255).clip(0, 255).astype(np.uint8), "RGBA")
+    img.save(os.path.join(W, "glass.png"))
+    print("glass.png", img.size, "texelů pruhu", int((a[:, 0] > 0.5).sum()))
 
 
 if __name__ == "__main__":

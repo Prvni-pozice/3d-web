@@ -26,6 +26,19 @@ nt.links.new(mr.outputs["Color"], sep.inputs[0])
 nt.links.new(sep.outputs[1], bsdf.inputs["Roughness"])   # G = roughness
 nt.links.new(sep.outputs[2], bsdf.inputs["Metallic"])    # B = metallic
 
+# Vnější sklo: tónované + pruh KTM X-BOW (alfa z textury)
+gmat = bpy.data.objects["Livery_Glass"].data.materials[0]; gnt = gmat.node_tree; gnt.nodes.clear()
+gb = gnt.nodes.new("ShaderNodeBsdfPrincipled"); go = gnt.nodes.new("ShaderNodeOutputMaterial")
+gt = gnt.nodes.new("ShaderNodeTexImage")
+gt.image = bpy.data.images.load(os.path.join(HERE, "work", "glass.png"))
+gnt.links.new(gt.outputs["Color"], gb.inputs["Base Color"])
+gnt.links.new(gt.outputs["Alpha"], gb.inputs["Alpha"])
+gnt.links.new(gb.outputs[0], go.inputs[0])
+gb.inputs["Roughness"].default_value = 0.0
+gb.inputs["Metallic"].default_value = 0.0
+gmat.blend_method = 'BLEND'
+gmat.use_backface_culling = False
+
 if mode == "render":
     common.scale_up()
     cam = common.setup_render(samples=int(os.environ.get("SAMPLES", 24)))
@@ -35,7 +48,7 @@ if mode == "render":
     ortho = [v for v in views if v.startswith("o")]
     if ortho: common.render_ortho(cam, argv[1], ortho)
 elif mode == "export":
-    tex.image.pack(); mr.image.pack()
+    tex.image.pack(); mr.image.pack(); gt.image.pack()
     bpy.ops.export_scene.gltf(filepath=argv[1], export_format='GLB', export_image_format='AUTO',
                               export_apply=False, export_yup=True)
     print("EXPORTED", argv[1])
